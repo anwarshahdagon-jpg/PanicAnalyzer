@@ -5,6 +5,11 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Attach the exe to this existing release (e.g. v1.0). Leave empty to only build."
+        required: false
+        default: ""
 
 permissions:
   contents: write   # needed to attach the exe to a release
@@ -34,11 +39,12 @@ jobs:
           name: iPhonePanicAnalyzer
           path: dist/
       - name: Attach zip to the release
-        if: github.event_name == 'release'
+        if: github.event_name == 'release' || inputs.release_tag != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: |
-          $zip = "iPhonePanicAnalyzer-${{ github.event.release.tag_name }}-windows.zip"
+          $zip = "iPhonePanicAnalyzer-$env:TAG-windows.zip"
           Compress-Archive -Path dist\* -DestinationPath $zip
-          gh release upload "${{ github.event.release.tag_name }}" $zip dist\iPhonePanicAnalyzer.exe --clobber
+          gh release upload "$env:TAG" $zip dist\iPhonePanicAnalyzer.exe --clobber
