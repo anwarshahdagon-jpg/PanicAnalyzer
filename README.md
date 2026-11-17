@@ -27,7 +27,11 @@ If you run the `.exe`, you need nothing else. Only to run from source do you als
 
 ## Getting the .exe
 
-GitHub builds it for you: open the repository's **Actions** tab, open the latest **Build Windows exe** run and download **iPhonePanicAnalyzer** under *Artifacts*. Unzip it and run `iPhonePanicAnalyzer.exe`. Keep `rules.json` next to it.
+**Easiest:** open the repository's **Releases** page and download `iPhonePanicAnalyzer-<version>-windows.zip`, which holds the exe, `rules.json` and this README.
+
+**To make a new release:** on GitHub go to *Releases*, click *Draft a new release*, create a tag such as `v1.0`, and click *Publish release*. GitHub builds the exe and attaches it to the release after about 3 minutes.
+
+**Every push** also builds the exe: open the **Actions** tab, open the latest **Build Windows exe** run and download **iPhonePanicAnalyzer** under *Artifacts*.
 
 Windows SmartScreen may warn about an unknown app the first time, because the app is not code-signed. Click *More info* and then *Run anyway*.
 

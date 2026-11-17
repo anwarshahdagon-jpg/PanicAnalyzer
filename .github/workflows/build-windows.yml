@@ -1,11 +1,20 @@
 name: Build Windows exe
-on: [push, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to attach the exe to a release
+
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt pyinstaller
@@ -15,9 +24,21 @@ jobs:
           --add-data "app\rules.json;." --collect-all pymobiledevice3 --collect-all pycrashreport
           --collect-data developer_disk_image --recursive-copy-metadata pymobiledevice3
           --paths app app\main.py
-      - run: copy app\rules.json dist\rules.json
+      - name: Add rules.json and README next to the exe
         shell: cmd
-      - uses: actions/upload-artifact@v4
+        run: |
+          copy app\rules.json dist\rules.json
+          copy README.md dist\README.md
+      - uses: actions/upload-artifact@v5
         with:
           name: iPhonePanicAnalyzer
           path: dist/
+      - name: Attach zip to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = "iPhonePanicAnalyzer-${{ github.event.release.tag_name }}-windows.zip"
+          Compress-Archive -Path dist\* -DestinationPath $zip
+          gh release upload "${{ github.event.release.tag_name }}" $zip dist\iPhonePanicAnalyzer.exe --clobber
