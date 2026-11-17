@@ -1,0 +1,2 @@
+{"bug_type": "309", "timestamp": "2026-11-16"}
+{"procName": "Instagram", "exception": {"type": "EXC_BAD_ACCESS"}}

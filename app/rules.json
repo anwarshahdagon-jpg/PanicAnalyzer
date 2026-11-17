@@ -1,0 +1,441 @@
+{
+  "_comment": "Panic knowledge base. You can edit this file to add your own codes. Patterns are case-insensitive regular expressions. 'models' entries are ProductType prefixes (e.g. 'iPhone12,' = iPhone 11 / 11 Pro / 11 Pro Max / SE 2). Restart the app after editing.",
+  "version": 1,
+
+  "sensors": {
+    "PRS0": {
+      "name": "Barometer (pressure sensor)",
+      "location": "Charging port flex (on iPhone 8 / X and newer the barometer sits on the charging port flex cable)",
+      "locations": [
+        { "models": ["iPhone9,"], "location": "Main logic board area near the charging port (iPhone 7 / 7 Plus). Check the charging port flex and its connector first." }
+      ],
+      "steps": [
+        "Fit a known-good, good-quality charging port flex (original or high-quality copy). Cheap flexes often have no barometer or a bad one, which causes this exact panic.",
+        "If the panic continues: inspect the charging flex connector on the board for corrosion, liquid damage, bent or missing pins. Clean with IPA and reseat.",
+        "Measure the charging flex connector pins in diode mode and compare with a known-good board or the schematic values. An OL (open) reading on the barometer data or power lines means a broken trace or pad.",
+        "On stacked boards (iPhone X and newer) an open line can be in the interposer. Separate the board and check the interposer pads for that line, then repair (jumper or reball)."
+      ]
+    },
+    "MIC1": {
+      "name": "Microphone 1 (bottom microphone)",
+      "location": "Charging port flex (bottom microphone sits on the charging flex on iPhone 11 and newer)",
+      "steps": [
+        "Fit a known-good charging port flex.",
+        "If the panic continues: inspect and clean the charging flex connector on the board.",
+        "Measure the charging flex connector pins in diode mode against a known-good board. Look for open (OL) mic data or power lines.",
+        "On stacked boards check the interposer for the mic lines, then the audio codec circuit."
+      ]
+    },
+    "MIC2": {
+      "name": "Microphone 2 (secondary microphone)",
+      "location": "A top or side flex. Depending on the model this is the power/flash flex, the earpiece/front sensor flex or the rear camera area. Confirm with the schematic for this model.",
+      "steps": [
+        "Find which flex carries mic2 for this model (schematic or board viewer).",
+        "Fit a known-good copy of that flex.",
+        "If the panic continues: clean and diode-test that flex connector on the board against a known-good board.",
+        "Repair any open line (trace, pad, interposer)."
+      ]
+    },
+    "MIC3": {
+      "name": "Microphone 3",
+      "location": "A top or rear flex depending on the model. Confirm with the schematic for this model.",
+      "steps": [
+        "Find which flex carries mic3 for this model and fit a known-good copy.",
+        "Clean and diode-test that flex connector on the board."
+      ]
+    },
+    "TG0B": {
+      "name": "Battery temperature sensor (NTC in the battery)",
+      "location": "Battery / battery connector",
+      "steps": [
+        "Fit a known-good battery (a non-genuine or damaged battery is the most common cause).",
+        "If the panic continues: inspect the battery connector on the board for damage or corrosion and clean it.",
+        "Diode-test the battery connector pins (especially the NTC / BATT_SWI lines) against a known-good board.",
+        "Repair any open line or replace the damaged connector."
+      ]
+    },
+    "TG0V": {
+      "name": "Battery sensor (gas gauge temperature/voltage reading)",
+      "location": "Battery / battery connector",
+      "steps": [
+        "Fit a known-good battery.",
+        "Inspect and clean the battery connector on the board.",
+        "Diode-test the battery connector pins against a known-good board and repair any open line."
+      ]
+    },
+    "TG0H": {
+      "name": "Battery-related temperature sensor",
+      "location": "Battery / battery connector",
+      "steps": [
+        "Fit a known-good battery.",
+        "Inspect, clean and diode-test the battery connector."
+      ]
+    }
+  },
+
+  "unknown_sensor": {
+    "name": "Unlisted sensor",
+    "location": "Unknown. Look up this sensor code in the schematic or board viewer for this model.",
+    "steps": [
+      "Find which part or flex carries this sensor in the schematic or board viewer.",
+      "Fit a known-good copy of that part or flex.",
+      "Clean and diode-test its connector and lines against a known-good board."
+    ]
+  },
+
+  "watchdog_daemons": {
+    "thermalmonitord": {
+      "component": "Thermal sensors",
+      "why": "The thermal monitor service stopped checking in. iOS reboots the phone when it cannot read all of its temperature sensors. This is almost always a missing sensor on a flex (charging flex, battery, top flex) rather than a software fault.",
+      "steps": [
+        "Look at the 'Missing sensor(s)' line in this log (if present) and follow the steps for that sensor.",
+        "If no sensor is listed: try a known-good charging port flex and battery first, these carry most of the sensors.",
+        "Disconnect flexes one by one (front sensor flex, power flex, camera) and watch whether the 3-minute reboot changes.",
+        "If all flexes are good, update or restore iOS to rule out software."
+      ]
+    },
+    "wifid": {
+      "component": "Wi-Fi / Bluetooth chip",
+      "why": "The Wi-Fi service stopped responding, which usually means iOS cannot talk to the Wi-Fi/Bluetooth chip.",
+      "steps": [
+        "Check whether Wi-Fi is greyed out in Settings.",
+        "Restore iOS to rule out software.",
+        "Inspect the Wi-Fi chip area for liquid damage or impact.",
+        "Measure the Wi-Fi chip power rails and reflow/replace the Wi-Fi module if needed."
+      ]
+    },
+    "backboardd": {
+      "component": "Display / touch / front flex",
+      "why": "backboardd handles the screen and touch. A hang here points to the display, touch, or front sensor path.",
+      "steps": [
+        "Try a known-good screen.",
+        "Disconnect the front camera / sensor flex and test again.",
+        "Clean and diode-test the display and touch connectors on the board."
+      ]
+    },
+    "mediaserverd": {
+      "component": "Audio",
+      "why": "The media service stopped responding, which often points at the audio path (audio codec, amplifiers, speaker or mic flex).",
+      "steps": [
+        "Disconnect the loudspeaker and earpiece and test again.",
+        "Try a known-good charging flex (carries a mic).",
+        "Check the audio codec and amplifier circuits on the board."
+      ]
+    },
+    "audiomxd": {
+      "component": "Audio",
+      "why": "The audio service stopped responding, which often points at the audio path (audio codec, amplifiers, speaker or mic flex).",
+      "steps": [
+        "Disconnect the loudspeaker and earpiece and test again.",
+        "Try a known-good charging flex (carries a mic).",
+        "Check the audio codec and amplifier circuits on the board."
+      ]
+    },
+    "CommCenter": {
+      "component": "Baseband (cellular)",
+      "why": "CommCenter talks to the cellular modem. A hang here usually means the baseband is not responding.",
+      "steps": [
+        "Check whether the phone shows 'No Service' or no IMEI.",
+        "Restore iOS to rule out software.",
+        "Check the baseband CPU, baseband PMU and their power rails (stacked boards: check the interposer)."
+      ]
+    },
+    "locationd": {
+      "component": "Location sensors / baseband",
+      "why": "The location service stopped responding. This can come from motion sensors, GPS, or the baseband.",
+      "steps": [
+        "Restore iOS to rule out software.",
+        "Check the baseband and sensor circuits."
+      ]
+    },
+    "bluetoothd": {
+      "component": "Bluetooth chip",
+      "why": "The Bluetooth service stopped responding, which usually means iOS cannot reach the Wi-Fi/Bluetooth chip.",
+      "steps": [
+        "Restore iOS to rule out software.",
+        "Check the Wi-Fi/Bluetooth chip and its power rails."
+      ]
+    },
+    "SpringBoard": {
+      "component": "Software (iOS)",
+      "why": "SpringBoard is the home screen app. A hang here is most often software, not hardware.",
+      "steps": [
+        "Update iOS, or back up and restore the phone with iTunes / 3uTools.",
+        "If the panic returns on a clean restore, look for other hardware clues in later panic logs."
+      ]
+    }
+  },
+
+  "rules": [
+    {
+      "id": "i2c_bus",
+      "title": "I2C bus stuck",
+      "component": "A chip on I2C bus {g1}",
+      "confidence": "High",
+      "patterns": ["i2c(\\d+)::_checkBusStatus", "i2c(\\d+).{0,80}(?:SDA|SCL).{0,40}held low"],
+      "why": "The log says I2C bus {g1} is stuck: a chip on that bus is holding the data (SDA) or clock (SCL) line low. This happens when a part on that bus is shorted, failed or disconnected, or when the line's pull-up resistor is damaged.",
+      "steps": [
+        "Look up which chips and flexes are on I2C bus {g1} for this model in the schematic / board viewer.",
+        "Disconnect the flexes on that bus one by one (charging flex, front flex, camera) and test after each.",
+        "Measure the SDA/SCL lines of bus {g1}: voltage should be about 1.8 V and diode readings should match a known-good board. A line pulled to 0 V points to the chip holding it low.",
+        "Remove or replace the suspect chip; also check the pull-up resistors on that bus."
+      ]
+    },
+    {
+      "id": "baseband",
+      "title": "Baseband (cellular modem) problem",
+      "component": "Baseband",
+      "confidence": "Medium",
+      "patterns": ["baseband", "AppleBasebandPCI", "BBPCI", "\\bBB\\b.{0,40}(?:panic|crash|timeout|reset)"],
+      "why": "The panic mentions the baseband. iOS reboots when it cannot talk to the cellular modem.",
+      "steps": [
+        "Check for 'No Service', no IMEI or no modem firmware in Settings > General > About.",
+        "Restore iOS to rule out a software problem.",
+        "Check the baseband CPU and baseband PMU power rails; on stacked boards check the interposer.",
+        "Reball or replace the baseband CPU if the rails are good."
+      ]
+    },
+    {
+      "id": "wifi",
+      "title": "Wi-Fi / Bluetooth chip problem",
+      "component": "Wi-Fi / Bluetooth module",
+      "confidence": "Medium",
+      "patterns": ["AppleBCMWLAN", "\\bwlan\\b", "AppleOLYHAL", "AppleBluetooth.{0,40}(?:timeout|panic)"],
+      "why": "The panic comes from the Wi-Fi/Bluetooth driver. iOS could not get a response from the Wi-Fi/Bluetooth chip.",
+      "steps": [
+        "Check whether Wi-Fi is greyed out in Settings.",
+        "Restore iOS to rule out software.",
+        "Check the Wi-Fi chip power rails and the chip area for liquid or impact damage.",
+        "Reflow or replace the Wi-Fi/Bluetooth module."
+      ]
+    },
+    {
+      "id": "nand",
+      "title": "Storage (NAND) problem",
+      "component": "NAND storage",
+      "confidence": "Medium",
+      "patterns": ["\\bANS2?\\b", "AppleANS", "\\bNVMe\\b", "AppleNVMe", "\\bnand\\b", "IONVMe"],
+      "why": "The panic comes from the storage controller (ANS / NVMe). iOS could not read or write the NAND storage correctly.",
+      "steps": [
+        "Back up the data if the phone still boots.",
+        "Restore iOS with iTunes / 3uTools. Errors during restore (for example 4013, 4014, 9) also point to the NAND.",
+        "Check the NAND power rails and the NAND / CPU solder joints.",
+        "Reball or replace the NAND (needs NAND programming / SysCFG on older models)."
+      ]
+    },
+    {
+      "id": "sep",
+      "title": "Secure Enclave (SEP) panic",
+      "component": "Secure Enclave / CPU",
+      "confidence": "Low",
+      "patterns": ["SEP Panic", "sep panic", "AppleSEPManager", "SEP ROM"],
+      "why": "The Secure Enclave crashed. This can be caused by a faulty Touch ID / Face ID part, NAND problems, or the CPU itself.",
+      "steps": [
+        "Disconnect Touch ID / Face ID parts and test.",
+        "Restore iOS.",
+        "If it continues, suspect the NAND or CPU (board-level)."
+      ]
+    },
+    {
+      "id": "touchid",
+      "title": "Touch ID problem",
+      "component": "Touch ID sensor / flex",
+      "confidence": "Medium",
+      "patterns": ["AppleMesa", "\\bmesa\\b"],
+      "why": "The panic comes from the Touch ID (Mesa) driver.",
+      "steps": [
+        "Disconnect the Touch ID / home button flex and test again.",
+        "Try a known-good home button flex (note: only the original button supports Touch ID).",
+        "Check the Touch ID connector and its lines on the board."
+      ]
+    },
+    {
+      "id": "faceid",
+      "title": "Face ID problem",
+      "component": "Face ID / front sensor flex",
+      "confidence": "Medium",
+      "patterns": ["ApplePearl", "\\bpearl\\b", "AppleH\\d+PearlCam"],
+      "why": "The panic comes from the Face ID (Pearl) driver.",
+      "steps": [
+        "Disconnect the Face ID dot projector / flood illuminator and front sensor flex and test again.",
+        "Inspect the Face ID connector for liquid damage.",
+        "Check the Face ID lines on the board."
+      ]
+    },
+    {
+      "id": "camera",
+      "title": "Camera problem",
+      "component": "Camera module / camera flex",
+      "confidence": "Medium",
+      "patterns": ["AppleH\\d+CamIn", "\\bisp\\b.{0,60}(?:panic|timeout|fault|firmware)", "AppleCamera"],
+      "why": "The panic comes from the camera / image processor driver.",
+      "steps": [
+        "Disconnect the rear and front cameras one at a time and test.",
+        "Fit known-good cameras.",
+        "Inspect and diode-test the camera connectors on the board."
+      ]
+    },
+    {
+      "id": "display",
+      "title": "Display problem",
+      "component": "Screen / display path",
+      "confidence": "Medium",
+      "patterns": ["AppleCLCD", "\\bDCP\\b", "dcp.{0,40}(?:panic|timeout|crash)", "AppleDisplay"],
+      "why": "The panic comes from the display controller (DCP / CLCD).",
+      "steps": [
+        "Try a known-good screen.",
+        "Inspect and clean the display connector.",
+        "Check the display power and data lines on the board."
+      ]
+    },
+    {
+      "id": "touch",
+      "title": "Touch screen problem",
+      "component": "Touch / screen",
+      "confidence": "Medium",
+      "patterns": ["AppleMultitouch", "multitouch.{0,40}(?:timeout|panic)"],
+      "why": "The panic comes from the touch driver.",
+      "steps": [
+        "Try a known-good screen.",
+        "Check the touch connector and the touch IC circuit on the board."
+      ]
+    },
+    {
+      "id": "pmu",
+      "title": "Power management (PMU / SPMI) problem",
+      "component": "PMU / power circuit",
+      "confidence": "Medium",
+      "patterns": ["\\bPMU\\b", "AppleSPMI", "\\bSPMI\\b", "AppleDialogPMU"],
+      "why": "The panic comes from the power management chip or its bus. Often caused by a bad battery, a short on a power rail, or the PMU itself.",
+      "steps": [
+        "Fit a known-good battery.",
+        "Measure current draw with a DC power supply; look for abnormal draw or shorted rails.",
+        "Check the PMU and its rails; reball or replace if needed."
+      ]
+    },
+    {
+      "id": "charging_ic",
+      "title": "Charging / USB IC problem",
+      "component": "Tristar / Hydra / USB controller",
+      "confidence": "Medium",
+      "patterns": ["tristar", "hydra", "AppleHPM", "AppleSN2", "AppleUSBPD"],
+      "why": "The panic mentions the USB/charging controller (Tristar / Hydra / HPM).",
+      "steps": [
+        "Try a known-good charging port flex and a genuine cable.",
+        "Inspect the charging connector for liquid damage.",
+        "Check or replace the Tristar / Hydra IC."
+      ]
+    },
+    {
+      "id": "battery",
+      "title": "Battery problem",
+      "component": "Battery",
+      "confidence": "Medium",
+      "patterns": ["AppleSmartBattery", "battery.{0,40}(?:panic|timeout|fault)", "gas ?gauge"],
+      "why": "The panic mentions the battery or fuel gauge.",
+      "steps": [
+        "Fit a known-good battery.",
+        "Inspect and diode-test the battery connector."
+      ]
+    },
+    {
+      "id": "haptics",
+      "title": "Taptic engine problem",
+      "component": "Taptic engine",
+      "confidence": "Low",
+      "patterns": ["AppleHaptics", "taptic"],
+      "why": "The panic mentions the Taptic engine (vibration motor).",
+      "steps": [
+        "Disconnect the Taptic engine and test.",
+        "Fit a known-good Taptic engine and check its connector."
+      ]
+    },
+    {
+      "id": "audio",
+      "title": "Audio IC problem",
+      "component": "Audio codec / amplifier",
+      "confidence": "Low",
+      "patterns": ["AppleCS\\d", "cs42l", "cs35l", "AppleAOPAudio", "audio codec"],
+      "why": "The panic mentions the audio codec or audio amplifier.",
+      "steps": [
+        "Disconnect the loudspeaker, earpiece and charging flex and test.",
+        "Check the audio codec and amplifier circuits."
+      ]
+    },
+    {
+      "id": "gpu",
+      "title": "GPU / CPU problem",
+      "component": "CPU (GPU block)",
+      "confidence": "Low",
+      "patterns": ["AppleAGX", "\\bAGX\\b", "GPU (?:hang|fault|panic|restart)"],
+      "why": "The panic comes from the graphics part of the CPU.",
+      "steps": [
+        "Restore iOS.",
+        "If it continues, suspect the CPU or RAM solder joints (board-level)."
+      ]
+    },
+    {
+      "id": "soc_watchdog",
+      "title": "Hardware watchdog reset",
+      "component": "Board-level (CPU / power)",
+      "confidence": "Low",
+      "patterns": ["Unexpected SoC \\(JTAG\\) watchdog reset", "AP watchdog expired", "SoC watchdog"],
+      "why": "The CPU stopped responding completely and the hardware watchdog reset it. This is usually board-level: power rails, CPU, or RAM.",
+      "steps": [
+        "Check whether the phone also restarts in DFU / recovery mode (if yes, it is hardware).",
+        "Measure current draw and look for unstable rails.",
+        "Check CPU, PMU and (on stacked boards) the interposer."
+      ]
+    },
+    {
+      "id": "aop",
+      "title": "Always-On Processor (AOP) panic",
+      "component": "Motion / proximity sensors (AOP)",
+      "confidence": "Low",
+      "patterns": ["AOP PANIC", "\\bAOP\\b.{0,40}(?:panic|crash|timeout)"],
+      "why": "The Always-On Processor manages sensors such as the accelerometer, gyro and proximity sensor. A panic here often follows a missing or faulty sensor.",
+      "steps": [
+        "Check the 'Missing sensor(s)' line if present.",
+        "Disconnect the front sensor flex and test.",
+        "Restore iOS if no hardware is found."
+      ]
+    },
+    {
+      "id": "kernel_abort",
+      "title": "Kernel data abort (software or memory)",
+      "component": "Software, RAM or CPU",
+      "confidence": "Low",
+      "patterns": ["Kernel data abort", "Kernel instruction fetch abort", "Kernel inst(?:ruction)? abort"],
+      "why": "A kernel data abort is a crash inside iOS. On its own it is usually software. If it repeats with different addresses after a clean restore, suspect RAM / CPU solder joints.",
+      "steps": [
+        "Update iOS, or back up and restore the phone.",
+        "If it keeps panicking after a clean restore, compare several panic logs: a different crashing process each time points to RAM/CPU.",
+        "Board-level: check CPU / RAM solder joints (reball)."
+      ]
+    },
+    {
+      "id": "memory_exhausted",
+      "title": "Memory exhausted (software)",
+      "component": "Software (iOS)",
+      "confidence": "Low",
+      "patterns": ["zone_map_exhausted", "zalloc", "zone map exhausted", "jetsam"],
+      "why": "iOS ran out of memory. This is almost always a software or app problem.",
+      "steps": [
+        "Update iOS and remove recently installed apps or profiles.",
+        "Back up and restore the phone."
+      ]
+    },
+    {
+      "id": "apfs",
+      "title": "File system (APFS) problem",
+      "component": "Software or NAND",
+      "confidence": "Low",
+      "patterns": ["\\bapfs\\b", "AppleAPFS", "nx_\\w+"],
+      "why": "The panic comes from the file system. This can be file-system corruption (software) or a failing NAND.",
+      "steps": [
+        "Restore iOS.",
+        "If the restore fails or the panic returns, suspect the NAND."
+      ]
+    }
+  ]
+}

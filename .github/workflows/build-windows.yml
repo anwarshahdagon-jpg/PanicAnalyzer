@@ -1,0 +1,23 @@
+name: Build Windows exe
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pyinstaller
+      - run: python -m unittest discover -s tests -v
+      - run: >
+          pyinstaller --noconfirm --clean --onefile --windowed --name iPhonePanicAnalyzer
+          --add-data "app\rules.json;." --collect-all pymobiledevice3 --collect-all pycrashreport
+          --collect-data developer_disk_image --recursive-copy-metadata pymobiledevice3
+          --paths app app\main.py
+      - run: copy app\rules.json dist\rules.json
+        shell: cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iPhonePanicAnalyzer
+          path: dist/

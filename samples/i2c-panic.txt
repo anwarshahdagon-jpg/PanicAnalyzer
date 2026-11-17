@@ -1,0 +1,4 @@
+panic(cpu 0 caller 0xfffffff0123): i2c0::_checkBusStatus SDA(00000000) held low by slave, IICSTA=0x00000000
+Debugger message: panic
+OS version: 20G75
+product: iPhone10,6

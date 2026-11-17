@@ -1,0 +1,11 @@
+{"bug_type": "210", "timestamp": "2026-11-15 10:21:44.00 +0700", "os_version": "iPhone OS 17.5.1 (21F90)", "incident_id": "6B1E4C2A-0000-4D7F-9A21-1F2E3D4C5B6A"}
+{
+  "build": "iPhone OS 17.5.1 (21F90)",
+  "product": "iPhone12,1",
+  "socId": "8030",
+  "kernel": "Darwin Kernel Version 23.5.0",
+  "incident": "6B1E4C2A-0000-4D7F-9A21-1F2E3D4C5B6A",
+  "date": "2026-11-15 10:21:44.10 +0700",
+  "panicString": "panic(cpu 5 caller 0xfffffff02a3c1234): userspace watchdog timeout: no successful checkins from thermalmonitord\nservice returned not alive with context : is_alive_func returned unhealthy : current 1, last 0, Missing sensor(s): PRS0 \nservice: thermalmonitord, total successful checkins in 180 seconds: 0\nDebugger message: panic\nMemory ID: 0x6\nOS release type: User\nOS version: 21F90\nKernel version: Darwin Kernel Version 23.5.0\n",
+  "panicFlags": "0x2"
+}
