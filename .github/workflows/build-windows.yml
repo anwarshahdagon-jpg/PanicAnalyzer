@@ -1,32 +1,57 @@
 name: Build Windows exe
+# Builds the exe on GitHub (never on a local PC) and publishes releases for the in-app updater.
+#   push to main          -> build only; download it from the run's Artifacts
+#   push a tag like v1.2  -> build with version 1.2, create the GitHub Release, attach the exe
+#   publish a release     -> same as a tag, for releases made on the GitHub website
+#   manual run + tag      -> rebuild and attach to an existing release
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   release:
     types: [published]
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Attach the exe to this existing release (e.g. v1.0). Leave empty to only build."
+        description: "Attach the exe to this release tag (e.g. v1.2). Leave empty to only build."
         required: false
         default: ""
 
 permissions:
-  contents: write   # needed to attach the exe to a release
+  contents: write   # needed to create releases and attach the exe
+
+concurrency:
+  # a release made on the website fires both "push tag" and "release"; only one build is needed
+  group: build-${{ github.event.release.tag_name || inputs.release_tag || github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.release_tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag || github.ref }}
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt pyinstaller
       - run: python -m unittest discover -s tests -v
+      - name: Stamp the version from the tag
+        if: env.TAG != ''
+        shell: pwsh
+        run: |
+          $v = $env:TAG -replace '^[vV]', ''
+          if ($v -notmatch '^\d+(\.\d+)*$') { throw "Tag '$env:TAG' is not a version like v1.2" }
+          Set-Content -Path app\version.py -Value "`"`"`"App version. Set by the release workflow.`"`"`"`n__version__ = `"$v`""
+          Get-Content app\version.py
       - run: >
           pyinstaller --noconfirm --clean --onefile --windowed --name iPhonePanicAnalyzer
-          --add-data "app\rules.json;." --collect-all pymobiledevice3 --collect-all pycrashreport
+          --icon app\assets\icon.ico
+          --add-data "app\rules.json;." --add-data "app\assets;assets"
+          --collect-all pymobiledevice3 --collect-all pycrashreport
           --collect-data developer_disk_image --recursive-copy-metadata pymobiledevice3
           --paths app app\main.py
       - name: Add rules.json and README next to the exe
@@ -38,13 +63,16 @@ jobs:
         with:
           name: iPhonePanicAnalyzer
           path: dist/
-      - name: Attach zip to the release
-        if: github.event_name == 'release' || inputs.release_tag != ''
+      - name: Publish to the GitHub Release
+        if: env.TAG != ''
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name || inputs.release_tag }}
         run: |
+          gh release view "$env:TAG" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create "$env:TAG" --title "iPhone Panic Analyzer $env:TAG" --generate-notes --verify-tag
+          }
           $zip = "iPhonePanicAnalyzer-$env:TAG-windows.zip"
-          Compress-Archive -Path dist\* -DestinationPath $zip
+          Compress-Archive -Path dist\* -DestinationPath $zip -Force
           gh release upload "$env:TAG" $zip dist\iPhonePanicAnalyzer.exe --clobber

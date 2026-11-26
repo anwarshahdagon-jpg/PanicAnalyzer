@@ -7,7 +7,9 @@ if not exist ".venv\Scripts\python.exe" py -3 -m venv .venv
 ".venv\Scripts\python.exe" -m pip install -r requirements.txt pyinstaller || goto :fail
 ".venv\Scripts\pyinstaller.exe" --noconfirm --clean --onefile --windowed ^
   --name iPhonePanicAnalyzer ^
+  --icon app\assets\icon.ico ^
   --add-data "app\rules.json;." ^
+  --add-data "app\assets;assets" ^
   --collect-all pymobiledevice3 ^
   --collect-all pycrashreport ^
   --collect-data developer_disk_image ^

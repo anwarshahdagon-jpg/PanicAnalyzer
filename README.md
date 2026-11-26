@@ -1,3 +1,5 @@
+<p align="center"><img src="logo.png" width="128" alt="iPhone Panic Analyzer logo"></p>
+
 # iPhone Panic Analyzer
 
 A Windows desktop app for phone repair technicians. Plug in an iPhone that keeps rebooting: the app copies its panic logs to the PC, points to the part that is most likely at fault, quotes the line from the log that proves it, and lists repair steps from cheapest to most involved.
@@ -13,6 +15,7 @@ A Windows desktop app for phone repair technicians. Plug in an iPhone that keeps
   - **repair steps** in order (for example: fit a good-quality charging flex, then clean the connector, then check the connector in diode mode, then check the interposer).
 - **Opens a panic file by hand**: `.ips`, `.txt` or a file with no extension. If the file is not a panic log (such as an app crash report or any other text), it says so.
 - **Saves a text report** to give to a customer or keep with the job.
+- **Updates itself.** On start it checks GitHub for a newer release. If there is one, it shows what is new and offers *Update now*, *Later* or *Skip this version*. *Update now* downloads the new exe, checks it, closes the app, swaps the exe and opens the new version. Your own `rules.json` edits are kept, and new codes from the update are added to them. You can also click *Check for updates* at the top right at any time.
 
 ## What you need
 
@@ -29,7 +32,12 @@ If you run the `.exe`, you need nothing else. Only to run from source do you als
 
 **Easiest:** open the repository's **Releases** page and download `iPhonePanicAnalyzer-<version>-windows.zip`, which holds the exe, `rules.json` and this README.
 
-**To make a new release:** on GitHub go to *Releases*, click *Draft a new release*, create a tag such as `v1.0`, and click *Publish release*. GitHub builds the exe and attaches it to the release after about 3 minutes.
+**To make a new release** (this is what the in-app updater picks up), either:
+
+- push a version tag: `git tag v1.2` then `git push origin v1.2`, or
+- on GitHub go to *Releases*, click *Draft a new release*, create a tag such as `v1.2`, and click *Publish release*.
+
+GitHub Actions builds the exe with that version number, creates the release (with notes listing the changes) and attaches `iPhonePanicAnalyzer.exe` and the zip after about 3 minutes. Every copy of the app sees the update the next time it starts. Use a higher number each time (`v1.2`, `v1.3`, ... `v2.0`).
 
 **Every push** also builds the exe: open the **Actions** tab, open the latest **Build Windows exe** run and download **iPhonePanicAnalyzer** under *Artifacts*.
 
@@ -58,6 +66,10 @@ app/main.py       window and user interface (Tkinter)
 app/device.py     detects the iPhone, handles the Trust prompt and copies panic logs (pymobiledevice3)
 app/drivers.py    checks the Apple drivers; iTunes, Apple Devices and 3uTools links and download
 app/analyzer.py   reads .ips, .txt and extensionless panic files and matches them against rules.json
+app/updater.py    checks GitHub Releases for a newer version, downloads and installs it
+app/theme.py      dark theme, colours and app icon
+app/version.py    app version (set from the git tag when GitHub builds a release)
+app/assets/       app icon (icon.ico, icon.png); tools/make_icon.py draws it
 app/rules.json    fault knowledge base (editable)
 samples/          example panic logs used by the tests
 tests/            unit tests (run by GitHub Actions)
