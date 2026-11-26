@@ -22,13 +22,47 @@ def resource_path(name: str) -> str:
     return os.path.join(base, name)
 
 
-def rules_path() -> str:
-    """Prefer a rules.json next to the .exe (so the user can edit it), else the bundled one."""
+def user_rules_path() -> Optional[str]:
+    """The editable rules.json next to the .exe, if there is one."""
     if getattr(sys, "frozen", False):
         beside_exe = os.path.join(os.path.dirname(sys.executable), "rules.json")
         if os.path.exists(beside_exe):
             return beside_exe
-    return resource_path("rules.json")
+    return None
+
+
+def rules_path() -> str:
+    """Prefer a rules.json next to the .exe (so the user can edit it), else the bundled one."""
+    return user_rules_path() or resource_path("rules.json")
+
+
+def merge_rules(bundled: dict, user: dict) -> dict:
+    """Combine the rules shipped with this version and the user's edited rules.json.
+
+    The user's entries win where both have the same code or rule id, and codes added
+    in a newer version still show up after an auto-update even though the user's
+    rules.json beside the exe is older.
+    """
+    out = dict(bundled)
+    for key, val in user.items():
+        if isinstance(val, dict) and isinstance(bundled.get(key), dict):
+            out[key] = {**bundled[key], **val}
+        elif key == "rules" and isinstance(val, list):
+            ids = {r.get("id") for r in val if isinstance(r, dict)}
+            out[key] = list(val) + [r for r in bundled.get("rules", []) if r.get("id") not in ids]
+        else:
+            out[key] = val
+    return out
+
+
+def load_rules() -> dict:
+    with open(resource_path("rules.json"), "r", encoding="utf-8") as f:
+        bundled = json.load(f)
+    user = user_rules_path()
+    if not user:
+        return bundled
+    with open(user, "r", encoding="utf-8") as f:
+        return merge_rules(bundled, json.load(f))
 
 
 _FALLBACK_MODELS = {
@@ -213,8 +247,11 @@ class Finding:
 
 class Analyzer:
     def __init__(self, rules_file: Optional[str] = None):
-        with open(rules_file or rules_path(), "r", encoding="utf-8") as f:
-            self.kb = json.load(f)
+        if rules_file:
+            with open(rules_file, "r", encoding="utf-8") as f:
+                self.kb = json.load(f)
+        else:
+            self.kb = load_rules()
         self.sensors = {k.upper(): v for k, v in self.kb.get("sensors", {}).items()}
         self._rules = []
         for r in self.kb.get("rules", []):

@@ -15,16 +15,14 @@ from datetime import datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import drivers  # noqa: E402
+import theme  # noqa: E402
+import updater  # noqa: E402
 from analyzer import Analyzer, NotAPanicLog, PanicLog, parse_file, looks_like_panic_filename  # noqa: E402
 from device import DeviceWatcher, default_save_root  # noqa: E402
+from theme import C as COLORS, FONT, MONO  # noqa: E402
+from version import __version__ as APP_VERSION  # noqa: E402
 
 APP_NAME = "iPhone Panic Analyzer"
-APP_VERSION = "1.0"
-
-COLORS = {
-    "bg": "#f5f6f8", "ok": "#1e8e3e", "bad": "#d93025", "warn": "#e37400", "muted": "#5f6368",
-    "banner": "#fff4ce", "banner_hot": "#ffd6a5", "High": "#d93025", "Medium": "#e37400", "Low": "#5f6368",
-}
 
 
 def _enable_dpi_awareness() -> None:
@@ -32,6 +30,11 @@ def _enable_dpi_awareness() -> None:
         try:
             import ctypes
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            pass
+        try:  # own taskbar entry and icon, also when run from source
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("PanicAnalyzer.iPhonePanicAnalyzer")
         except Exception:
             pass
 
@@ -43,12 +46,13 @@ class DriverDialog(tk.Toplevel):
         super().__init__(app.root)
         self.app = app
         self.title("Apple drivers needed")
+        self.configure(bg=COLORS["bg"])
         self.transient(app.root)
         self.resizable(False, False)
         self._cancel = False
         pad = {"padx": 14, "pady": 4}
 
-        ttk.Label(self, text="iPhone drivers check", font=("Segoe UI", 13, "bold")).pack(anchor="w", padx=14, pady=(14, 2))
+        ttk.Label(self, text="iPhone drivers check", font=(FONT, 13, "bold")).pack(anchor="w", padx=14, pady=(14, 2))
         self.status_lbl = ttk.Label(self, text=status.summary(), foreground=COLORS["ok"] if status.ok else COLORS["bad"])
         self.status_lbl.pack(anchor="w", **pad)
         ttk.Label(self, wraplength=520, justify="left", text=(
@@ -57,7 +61,7 @@ class DriverDialog(tk.Toplevel):
 
         box = ttk.Frame(self)
         box.pack(fill="x", padx=14, pady=6)
-        ttk.Button(box, text="1. Get iTunes (Microsoft Store)  [recommended]",
+        ttk.Button(box, text="1. Get iTunes (Microsoft Store)  [recommended]", style="Accent.TButton",
                    command=drivers.open_itunes_store).pack(fill="x", pady=2)
         ttk.Button(box, text="2. Get Apple Devices app (Microsoft Store, Windows 11)",
                    command=drivers.open_apple_devices_store).pack(fill="x", pady=2)
@@ -80,6 +84,7 @@ class DriverDialog(tk.Toplevel):
         x = app.root.winfo_rootx() + (app.root.winfo_width() - self.winfo_width()) // 2
         y = app.root.winfo_rooty() + (app.root.winfo_height() - self.winfo_height()) // 3
         self.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        theme.dark_title_bar(self)
         self.grab_set()
 
     def _close(self):
@@ -152,6 +157,107 @@ class DriverDialog(tk.Toplevel):
         threading.Thread(target=work, daemon=True).start()
 
 
+class UpdateDialog(tk.Toplevel):
+    """Offers a newer release from GitHub, downloads it and restarts into it."""
+
+    def __init__(self, app: "App", rel: updater.Release):
+        super().__init__(app.root)
+        self.app, self.rel = app, rel
+        self._cancel = False
+        self.title("Update available")
+        self.configure(bg=COLORS["bg"])
+        self.transient(app.root)
+        self.resizable(False, False)
+
+        ttk.Label(self, text=f"Version {rel.version} is available", font=(FONT, 14, "bold")).pack(
+            anchor="w", padx=16, pady=(16, 2))
+        ttk.Label(self, text=f"You have version {APP_VERSION}.", style="Muted.TLabel").pack(anchor="w", padx=16)
+
+        notes = tk.Text(self, width=64, height=10, wrap="word", padx=10, pady=8, font=(FONT, 9))
+        theme.style_text(notes)
+        notes.insert("1.0", rel.notes or "No release notes.")
+        notes.configure(state="disabled")
+        notes.pack(fill="x", padx=16, pady=10)
+
+        self.progress = ttk.Progressbar(self, mode="determinate", length=480)
+        self.progress_lbl = ttk.Label(self, text="", style="Muted.TLabel")
+
+        bottom = ttk.Frame(self)
+        bottom.pack(fill="x", padx=16, pady=(4, 16))
+        if updater.can_self_update() and rel.exe_url:
+            self.go_btn = ttk.Button(bottom, text="Update now", style="Accent.TButton", command=self._update)
+        else:
+            self.go_btn = ttk.Button(bottom, text="Open download page", style="Accent.TButton",
+                                     command=lambda: (drivers.open_uri(rel.page_url), self._close()))
+        self.go_btn.pack(side="left")
+        ttk.Button(bottom, text="Later", command=self._close).pack(side="left", padx=8)
+        ttk.Button(bottom, text="Skip this version", command=self._skip).pack(side="right")
+
+        self.protocol("WM_DELETE_WINDOW", self._close)
+        self.update_idletasks()
+        x = app.root.winfo_rootx() + (app.root.winfo_width() - self.winfo_width()) // 2
+        y = app.root.winfo_rooty() + (app.root.winfo_height() - self.winfo_height()) // 3
+        self.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+        theme.dark_title_bar(self)
+        self.grab_set()
+
+    def _close(self):
+        self._cancel = True
+        self.grab_release()
+        self.destroy()
+
+    def _skip(self):
+        settings = updater.load_settings()
+        settings["skip_version"] = self.rel.version
+        updater.save_settings(settings)
+        self._close()
+
+    def _update(self):
+        self.go_btn.config(state="disabled")
+        self.progress.pack(padx=16, pady=(0, 2))
+        self.progress_lbl.pack(anchor="w", padx=16)
+        self.progress_lbl.config(text="Downloading...")
+
+        def prog(done, total):
+            def upd():
+                if not self.winfo_exists():
+                    return
+                if total:
+                    self.progress.config(maximum=total, value=done)
+                    self.progress_lbl.config(text=f"Downloading: {done / 1e6:.1f} / {total / 1e6:.1f} MB")
+                else:
+                    self.progress_lbl.config(text=f"Downloading: {done / 1e6:.1f} MB")
+            self.app.ui(upd)
+
+        def work():
+            try:
+                path = updater.download(self.rel, prog, lambda: self._cancel)
+            except Exception as e:
+                err = str(e)
+
+                def fail():
+                    if self._cancel or not self.winfo_exists():
+                        return
+                    self.go_btn.config(state="normal")
+                    self.progress_lbl.config(text=f"Update failed: {err}")
+                self.app.ui(fail)
+                return
+
+            def done():
+                if self._cancel:
+                    return
+                messagebox.showinfo(APP_NAME, f"Version {self.rel.version} is downloaded. The app will now close "
+                                              "and open again on the new version.", parent=self)
+                try:
+                    updater.install_and_restart(path)
+                except Exception as e:
+                    messagebox.showerror(APP_NAME, f"Could not install the update: {e}", parent=self)
+                    return
+                self.app._quit()
+            self.app.ui(done)
+        threading.Thread(target=work, daemon=True).start()
+
+
 class App:
     def __init__(self, root: tk.Tk):
         self.root = root
@@ -179,6 +285,7 @@ class App:
         self.watcher.start()
         root.after(100, self._pump)
         root.after(300, self._startup_driver_check)
+        root.after(2500, lambda: self.check_updates(manual=False))
         root.protocol("WM_DELETE_WINDOW", self._quit)
 
     # ------------------------------------------------------------------ helpers
@@ -206,33 +313,46 @@ class App:
 
     # ------------------------------------------------------------------ UI
     def _build_ui(self):
-        style = ttk.Style()
-        try:
-            style.theme_use("vista" if sys.platform.startswith("win") else "clam")
-        except tk.TclError:
-            pass
-        style.configure("Title.TLabel", font=("Segoe UI", 15, "bold"))
-        style.configure("Treeview", rowheight=24)
+        theme.apply(self.root)
+        self.logo_img = theme.set_app_icon(self.root)
 
-        top = ttk.Frame(self.root, padding=(12, 10, 12, 4))
+        top = ttk.Frame(self.root, style="Header.TFrame", padding=(14, 10, 14, 10))
         top.pack(fill="x")
-        ttk.Label(top, text=APP_NAME, style="Title.TLabel").pack(side="left")
-        self.device_lbl = ttk.Label(top, text="No iPhone connected", foreground=COLORS["muted"], font=("Segoe UI", 10))
-        self.device_lbl.pack(side="right", padx=(16, 0))
-        self.driver_lbl = ttk.Label(top, text="Checking Apple drivers...", foreground=COLORS["muted"], font=("Segoe UI", 10))
-        self.driver_lbl.pack(side="right")
+        if self.logo_img:
+            ttk.Label(top, image=self.logo_img, style="Header.TLabel").pack(side="left", padx=(0, 10))
+        titles = ttk.Frame(top, style="Header.TFrame")
+        titles.pack(side="left")
+        row = ttk.Frame(titles, style="Header.TFrame")
+        row.pack(anchor="w")
+        ttk.Label(row, text=APP_NAME, style="Title.TLabel").pack(side="left")
+        ttk.Label(row, text=f"v{APP_VERSION}", style="Version.TLabel").pack(side="left", padx=(8, 0), pady=(4, 0))
+        ttk.Label(titles, text="Panic log diagnostics for repair technicians", style="Subtitle.TLabel").pack(anchor="w")
+
+        status = ttk.Frame(top, style="Header.TFrame")
+        status.pack(side="right")
+        self.driver_lbl = ttk.Label(status, text="Checking Apple drivers...", style="Header.TLabel",
+                                    foreground=COLORS["muted"], font=(FONT, 10))
+        self.driver_lbl.pack(anchor="e")
+        self.device_lbl = ttk.Label(status, text="No iPhone connected", style="Header.TLabel",
+                                    foreground=COLORS["muted"], font=(FONT, 10))
+        self.device_lbl.pack(anchor="e")
+        self.update_btn = ttk.Button(top, text="Check for updates", style="Header.TButton",
+                                     command=lambda: self.check_updates(manual=True))
+        self.update_btn.pack(side="right", padx=(0, 18))
+        tk.Frame(self.root, bg=COLORS["accent"], height=2).pack(fill="x")
 
         self.banner = tk.Label(
-            self.root, anchor="w", justify="left", bg=COLORS["banner"], padx=12, pady=8, font=("Segoe UI", 10),
+            self.root, anchor="w", justify="left", bg=COLORS["banner"], fg=COLORS["banner_fg"], padx=12, pady=8,
+            font=(FONT, 10),
             text="Before you plug in: unlock the iPhone. When it asks \"Trust This Computer?\", tap Trust and enter the "
                  "passcode. Panic logs are copied automatically as soon as the iPhone is detected (it may reboot "
                  "every ~3 minutes, so plug it in right after it boots).")
-        self.banner.pack(fill="x", padx=12, pady=(2, 6))
+        self.banner.pack(fill="x", padx=12, pady=(10, 8))
         self.banner.bind("<Configure>", lambda e: self.banner.config(wraplength=e.width - 30))
 
-        bar = ttk.Frame(self.root, padding=(12, 0, 12, 6))
+        bar = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         bar.pack(fill="x")
-        ttk.Button(bar, text="Open panic log file...", command=self.open_file).pack(side="left")
+        ttk.Button(bar, text="Open panic log file...", style="Accent.TButton", command=self.open_file).pack(side="left")
         ttk.Button(bar, text="Re-read iPhone", command=self._refresh_device).pack(side="left", padx=6)
         ttk.Button(bar, text="Open saved logs folder", command=lambda: drivers.open_uri(self.save_root)).pack(side="left")
         ttk.Button(bar, text="Save report...", command=self._save_report).pack(side="left", padx=6)
@@ -242,7 +362,7 @@ class App:
         paned.pack(fill="both", expand=True, padx=12, pady=(0, 6))
 
         left = ttk.Frame(paned)
-        ttk.Label(left, text="Panic logs (newest first)", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 4))
+        ttk.Label(left, text="PANIC LOGS  ·  NEWEST FIRST", style="Section.TLabel").pack(anchor="w", pady=(0, 6))
         self.tree = ttk.Treeview(left, columns=("date", "device", "file"), show="headings", selectmode="browse")
         for col, w, txt in (("date", 140, "Date"), ("device", 130, "Device"), ("file", 200, "File")):
             self.tree.heading(col, text=txt)
@@ -255,30 +375,34 @@ class App:
         paned.add(left, weight=1)
 
         right = ttk.Notebook(paned)
-        self.report = self._make_text(right, wrap="word", font=("Segoe UI", 10))
-        self.raw = self._make_text(right, wrap="none", font=("Consolas", 9))
+        self.report = self._make_text(right, wrap="word", font=(FONT, 10))
+        self.raw = self._make_text(right, wrap="none", font=(MONO, 9))
         right.add(self.report.master, text="  Diagnosis  ")
         right.add(self.raw.master, text="  Raw panic log  ")
         paned.add(right, weight=3)
 
         t = self.report
-        t.tag_configure("h1", font=("Segoe UI", 14, "bold"), spacing3=6)
-        t.tag_configure("h2", font=("Segoe UI", 12, "bold"), spacing1=12, spacing3=4)
+        t.tag_configure("h1", font=(FONT, 15, "bold"), foreground="#ffffff", spacing3=6)
+        t.tag_configure("h2", font=(FONT, 12, "bold"), spacing1=12, spacing3=4)
+        t.tag_configure("top", font=(FONT, 12, "bold"), foreground=COLORS["accent"], spacing1=12, spacing3=4)
         t.tag_configure("meta", foreground=COLORS["muted"])
-        t.tag_configure("label", font=("Segoe UI", 10, "bold"))
-        t.tag_configure("code", font=("Consolas", 9), background="#eef1f5", lmargin1=20, lmargin2=20, spacing1=2, spacing3=2)
+        t.tag_configure("label", font=(FONT, 10, "bold"), foreground=COLORS["accent"])
+        t.tag_configure("code", font=(MONO, 9), background=COLORS["code_bg"], foreground=COLORS["code_fg"],
+                        lmargin1=20, lmargin2=20, rmargin=20, spacing1=3, spacing3=3)
         t.tag_configure("indent", lmargin1=20, lmargin2=38)
         for lvl in ("High", "Medium", "Low"):
-            t.tag_configure(lvl, foreground="white", background=COLORS[lvl], font=("Segoe UI", 9, "bold"))
+            t.tag_configure(lvl, foreground="white", background=COLORS[lvl], font=(FONT, 9, "bold"))
+        self.raw.tag_configure("raw", foreground=COLORS["code_fg"])
 
-        self.statusbar = ttk.Label(self.root, text=f"Saved logs folder: {self.save_root}", foreground=COLORS["muted"],
-                                   padding=(12, 2, 12, 6))
+        self.statusbar = tk.Label(self.root, text=f"Saved logs folder: {self.save_root}", anchor="w",
+                                  bg=COLORS["panel"], fg=COLORS["muted"], padx=12, pady=4, font=(FONT, 9))
         self.statusbar.pack(fill="x")
         self._show_welcome()
 
     def _make_text(self, parent, **kw) -> tk.Text:
         frame = ttk.Frame(parent)
-        text = tk.Text(frame, relief="flat", padx=14, pady=10, borderwidth=0, **kw)
+        text = tk.Text(frame, relief="flat", padx=16, pady=12, borderwidth=0, **kw)
+        theme.style_text(text)
         ys = ttk.Scrollbar(frame, orient="vertical", command=text.yview)
         text.configure(yscrollcommand=ys.set)
         if kw.get("wrap") == "none":
@@ -329,6 +453,36 @@ class App:
             st = drivers.check()
             self.ui(lambda: (self.set_driver_status(st), DriverDialog(self, st)))
         threading.Thread(target=work, daemon=True).start()
+
+    # ------------------------------------------------------------------ updates
+    def check_updates(self, manual: bool):
+        """Ask GitHub for the latest release. On start this is silent unless there is an update."""
+        if manual:
+            self.update_btn.config(state="disabled", text="Checking...")
+
+        def work():
+            try:
+                rel = updater.check(APP_VERSION)
+                err = None
+            except Exception as e:
+                rel, err = None, e
+            self.ui(lambda: self._after_update_check(rel, err, manual))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _after_update_check(self, rel, err, manual: bool):
+        self.update_btn.config(state="normal", text="Check for updates", style="Header.TButton")
+        if err is not None:
+            if manual:
+                messagebox.showwarning(APP_NAME, f"Could not check for updates. Check the internet connection.\n\n{err}")
+            return
+        if rel is None:
+            if manual:
+                messagebox.showinfo(APP_NAME, f"You have the latest version ({APP_VERSION}).")
+            return
+        if not manual and updater.load_settings().get("skip_version") == rel.version:
+            return
+        self.update_btn.config(text=f"Update to v{rel.version}", style="Accent.TButton")
+        UpdateDialog(self, rel)
 
     # ------------------------------------------------------------------ device events
     def _on_event(self, name: str, p: dict):
@@ -381,7 +535,8 @@ class App:
 
     def _banner(self, text: str, hot: bool):
         self.banner.config(text=text, bg=COLORS["banner_hot" if hot else "banner"],
-                           font=("Segoe UI", 10, "bold" if hot else "normal"))
+                           fg=COLORS["banner_hot_fg" if hot else "banner_fg"],
+                           font=(FONT, 10, "bold" if hot else "normal"))
 
     def _refresh_device(self):
         if not self.devices:
@@ -466,7 +621,7 @@ class App:
             ("Panic: ", "label"), (log.headline + "\n", "code"),
         ]
         top = findings[0]
-        chunks += [("\nMost likely: ", "h2"), (top.title + "\n", "h2"),
+        chunks += [("\nMost likely: ", "h2"), (top.title + "\n", "top"),
                    ("Part to check first: ", "label"), (top.component + "\n", "")]
 
         report_lines = [f"{APP_NAME} report", f"Model: {log.model} ({log.product})", f"iOS: {log.os_version}",
@@ -488,7 +643,7 @@ class App:
         chunks.append(("\nThese are likely causes based on the codes in the log. Always confirm with measurements "
                        "before replacing parts.\n", "meta"))
         self._write(self.report, chunks)
-        self._write(self.raw, [(log.panic_string + "\n\n" + "-" * 80 + "\nFull file:\n" + log.raw,)])
+        self._write(self.raw, [(log.panic_string + "\n\n" + "-" * 80 + "\nFull file:\n" + log.raw, "raw")])
         self.current_report = "\n".join(report_lines)
 
     def _save_report(self):
@@ -508,6 +663,7 @@ def main():
     _enable_dpi_awareness()
     root = tk.Tk()
     app = App(root)
+    theme.dark_title_bar(root)
     # allow "Open with" / dragging a file onto the .exe
     if len(sys.argv) > 1 and os.path.isfile(sys.argv[1]):
         root.after(500, lambda: app._add_log(sys.argv[1], select=True))
